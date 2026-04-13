@@ -186,3 +186,7 @@ Adding a new relay: connect it to any 2 existing relays via `--peers`. It will b
 
 - TURN server: required for WebRTC on symmetric NAT networks (corporate, some LTE). Without it, affected users fall back to GossipSub relay. Evaluate after initial deployment testing.
 - Per-IP rate limiting: not implemented; can be added at the nginx level if abuse is observed.
+
+## Scope note
+
+This document describes v5 — a PoC/testbed. The full product (React + TypeScript + Vite, Tauri desktop, Capacitor mobile) will reuse the crypto and signaling protocol defined here, implemented as framework-agnostic modules. Identity layer (Encedo HEM) is out of scope for v5.

@@ -160,3 +160,22 @@ sudo journalctl -u onchato-relay -f
 ### To consider later
 - [ ] TURN server (if WebRTC fails on symmetric NAT networks)
 - [ ] Second relay instance (redundancy)
+
+## Full product — architecture decisions
+
+v5 is a **PoC/testbed**. After deployment evaluation, the full product will be a separate project.
+
+**Planned stack:** React + TypeScript + Vite → Tauri (desktop) + Capacitor (mobile). One codebase, three platforms.
+
+**UI:** ready-made Slack-like React template from marketplace. P2P logic plugged in as framework-agnostic modules.
+
+**Module structure (agreed):**
+```
+src/lib/       — pure P2P logic (port crypto + signaling from v5)
+src/store/     — state management (Zustand/Redux)
+src/hooks/     — React bindings
+```
+
+**Identity:** Encedo HEM will handle identity, user list, peer associations. Placeholder in `store/identity.ts` until integration spec is ready.
+
+**Message history:** user-selectable — persistent (IndexedDB) or ephemeral (in-memory).
