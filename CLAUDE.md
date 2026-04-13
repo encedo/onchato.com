@@ -6,13 +6,14 @@ Browser-based P2P chat application built on **libp2p**. Two communication layers
 - **Layer 1 (fallback):** GossipSub over WebSocket → relay server (relay sees encrypted blobs)
 - **Layer 2 (direct):** WebRTC DataChannel — relay cannot see messages
 
-E2E encryption: AES-GCM-256, PBKDF2-SHA256 (250k iterations). Format: `ENC:<base64(salt|iv|ciphertext)>`.
+E2E encryption: AES-GCM-256, PBKDF2-SHA256 (250k iterations). Wire format: `{"v":1,"salt":"<b64>","iv":"<b64>","ct":"<b64>"}` (JSON, debuggable).
 
 ## Key files
 
 | File | Description |
 |------|-------------|
 | `src/app.js` | Browser client |
+| `PROTOCOL.md` | Protocol design, connection scenarios, scaling analysis |
 | `src/relay.mjs` | Relay server (Node.js, circuit-relay-v2 + GossipSub) |
 | `index.html` | UI (Polish, GitHub dark theme) |
 | `webpack.config.cjs` | Bundler — output: `dist/` |
@@ -147,7 +148,9 @@ sudo journalctl -u onchato-relay -f
 - [x] E2E encryption AES-GCM-256
 - [x] `npm run build` script
 - [x] `--host` flag in relay.mjs (prints production WSS multiaddr)
-- [x] Security limits: maxMessageSize, topic cap
+- [x] Security limits: maxMessageSize, topic cap, maxConnections, LimitNOFILE
+- [x] E2E wire format changed from binary base64 blob to JSON (debuggable)
+- [x] GossipSub send optimisation: skip relay publish when all peers have open DataChannel
 - [x] Deployment files: nginx config, systemd service, deploy.sh
 
 ### In progress

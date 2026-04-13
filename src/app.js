@@ -50,24 +50,31 @@ const _deriveKey = (key, salt, usage) =>
     key, { name: 'AES-GCM', length: 256 }, false, usage
   )
 
+// Message format (JSON, readable for debugging):
+// {"v":1,"salt":"<b64 16B>","iv":"<b64 12B>","ct":"<b64 ciphertext>"}
+// v=1 — format version, allows future migration without breaking changes
+
 async function encryptMsg(text, pass) {
   try {
     const salt = crypto.getRandomValues(new Uint8Array(16))
     const iv   = crypto.getRandomValues(new Uint8Array(12))
     const aesKey = await _deriveKey(await _getKey(pass), salt, ['encrypt'])
-    const enc = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, aesKey, _enc.encode(text))
-    const buf = new Uint8Array(16 + 12 + enc.byteLength)
-    buf.set(salt, 0); buf.set(iv, 16); buf.set(new Uint8Array(enc), 28)
-    return 'ENC:' + _b64enc(buf)
+    const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, aesKey, _enc.encode(text))
+    return JSON.stringify({
+      v:    1,
+      salt: _b64enc(salt),
+      iv:   _b64enc(iv),
+      ct:   _b64enc(new Uint8Array(ct))
+    })
   } catch (e) { console.error('encrypt:', e); return text }
 }
 
 async function decryptMsg(data, pass) {
-  if (!data.startsWith('ENC:')) return '[nieznany format]'
   try {
-    const buf  = _b64dec(data.slice(4))
-    const aesKey = await _deriveKey(await _getKey(pass), buf.slice(0,16), ['decrypt'])
-    const dec = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: buf.slice(16,28) }, aesKey, buf.slice(28))
+    const { v, salt, iv, ct } = JSON.parse(data)
+    if (v !== 1) return '[unknown format version]'
+    const aesKey = await _deriveKey(await _getKey(pass), _b64dec(salt), ['decrypt'])
+    const dec = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: _b64dec(iv) }, aesKey, _b64dec(ct))
     return _dec.decode(dec)
   } catch (e) { return '[błąd deszyfrowania — złe hasło?]' }
 }
@@ -405,28 +412,43 @@ async function sendMsg() {
   if (!text || !node) return
   input.value = ''
 
+  const pass = document.getElementById('passphrase-input').value.trim() || 'libp2p-default-2025'
+  const encrypted = await encryptMsg(text, pass)
+
   // Wyślij przez wszystkie otwarte DataChannels (WebRTC direct)
   let sentDirect = 0
   for (const [peerId, dc] of dataChannels) {
     if (dc.readyState === 'open') {
-      dc.send(await encryptMsg(text, document.getElementById('passphrase-input').value.trim() || 'libp2p-default-2025'))
+      dc.send(encrypted)
       sentDirect++
     }
   }
 
-  // Zawsze wysyłaj przez GossipSub (dla peerów bez WebRTC, np. LibreWolf)
-  // Peery z WebRTC zdeduplikują przez: if (dataChannels.has(from)) return
-  try {
-    await node.services.pubsub.publish(TOPIC, fromString(await encryptMsg(text, document.getElementById('passphrase-input').value.trim() || 'libp2p-default-2025'), 'utf8'))
-  } catch (err) {
-    // ignoruj
+  // Wyślij przez GossipSub tylko jeśli nie wszyscy peerzy mają otwarty DataChannel.
+  // Porównujemy getSubscribers(TOPIC) z dataChannels — jeśli ktoś w topicu nie ma
+  // WebRTC (nowy peer w trakcie handshake, przeglądarka bez WebRTC, symmetric NAT),
+  // relay musi dostarczyć wiadomość.
+  //
+  // OPTYMALIZACJA — jeśli sprawia problemy podczas testów (np. wiadomości nie dochodzą),
+  // zastąp cały blok if/allDirect bezwarunkowym publish jak niżej:
+  //   await node.services.pubsub.publish(TOPIC, fromString(encrypted, 'utf8'))
+  const topicPeers = node.services.pubsub.getSubscribers(TOPIC)
+  const allDirect = topicPeers.length > 0 &&
+    topicPeers.every(p => {
+      const dc = dataChannels.get(p.toString())
+      return dc && dc.readyState === 'open'
+    })
+
+  if (!allDirect) {
+    try {
+      await node.services.pubsub.publish(TOPIC, fromString(encrypted, 'utf8'))
+    } catch (_) {}
   }
 
-  if (sentDirect > 0) {
-    log(`[ja] ${text} 🟢 (WebRTC: ${sentDirect})`, 'self-msg')
-  } else {
-    log(`[ja] ${text} ⚪ (relay)`, 'self-msg')
-  }
+  const modeLabel = sentDirect > 0
+    ? `🟢 WebRTC: ${sentDirect}${!allDirect ? ' +relay' : ''}`
+    : '⚪ relay'
+  log(`[ja] ${text} (${modeLabel})`, 'self-msg')
 }
 
 // ── Relay list ────────────────────────────────────────────────────────────────

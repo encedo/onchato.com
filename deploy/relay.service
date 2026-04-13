@@ -19,6 +19,7 @@ ExecStart=/usr/bin/node src/relay.mjs --port 9001 --pass ZMIEN_MNIE --host oncha
 Restart=always
 RestartSec=5
 Environment=NODE_ENV=production
+LimitNOFILE=65536
 
 [Install]
 WantedBy=multi-user.target

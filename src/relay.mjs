@@ -50,6 +50,9 @@ const relay = await createLibp2p({
   connectionEncrypters: [noise()],
   streamMuxers: [yamux()],
   connectionGater: { denyDialMultiaddr: () => false },
+  connectionManager: {
+    maxConnections: 520  // 512 clients + headroom for inter-relay connections
+  },
   services: {
     identify: identify(),
     relay: circuitRelayServer({ reservations: { maxReservations: 256 } }),
@@ -58,7 +61,9 @@ const relay = await createLibp2p({
       emitSelf: false,
       floodPublish: true,
       D: 2, Dlo: 1, Dhi: 6, Dout: 0,
-      maxMessageSize: 65536  // 64 KB — enough for encrypted text, prevents flood abuse
+      maxMessageSize: 65536,  // 64 KB — enough for encrypted text, prevents flood abuse
+      historyLength: 2,       // keep last 2 windows (~2 min) instead of default 5
+      historyGossip: 1        // advertise only last window in gossip announcements
     })
   }
 })
