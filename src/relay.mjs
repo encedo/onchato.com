@@ -1,0 +1,107 @@
+/**
+ * Relay node v4a — libp2p 2.2.1 + circuit-relay-v2 3.1.0
+ *
+ * node src/relay.mjs --pass secret123 --port 9001
+ * node src/relay.mjs --pass secret456 --port 9002 --peers /ip4/.../tcp/9001/ws/p2p/...
+ */
+
+import { createLibp2p } from 'libp2p'
+import { webSockets } from '@libp2p/websockets'
+import { all } from '@libp2p/websockets/filters'
+import { noise } from '@chainsafe/libp2p-noise'
+import { yamux } from '@chainsafe/libp2p-yamux'
+import { circuitRelayServer } from '@libp2p/circuit-relay-v2'
+import { identify } from '@libp2p/identify'
+import { gossipsub } from '@chainsafe/libp2p-gossipsub'
+import { generateKeyPairFromSeed } from '@libp2p/crypto/keys'
+import { peerIdFromPrivateKey } from '@libp2p/peer-id'
+import { multiaddr } from '@multiformats/multiaddr'
+import { createHash } from 'crypto'
+
+const args = process.argv.slice(2)
+const get = (flag, def) => { const i = args.indexOf(flag); return i !== -1 ? args[i + 1] : def }
+const getPeers = () => {
+  const peers = []
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--peers' && args[i + 1]) {
+      for (let j = i + 1; j < args.length && !args[j].startsWith('--'); j++) {
+        peers.push(args[j])
+      }
+    }
+  }
+  return peers
+}
+
+const PASS  = get('--pass', 'default-relay-pass')
+const PORT  = parseInt(get('--port', '9001'))
+const HOST  = get('--host', null)   // np. onchato.com — do drukowania produkcyjnego multiaddr
+const PEERS = getPeers()
+
+const seed    = createHash('sha256').update(PASS).digest()
+const privKey = await generateKeyPairFromSeed('Ed25519', seed)
+const peerId  = peerIdFromPrivateKey(privKey)
+
+console.log(`\n🔑 Pass: "${PASS}" → PeerId: ${peerId.toString()}`)
+
+const relay = await createLibp2p({
+  privateKey: privKey,
+  addresses: { listen: [`/ip4/0.0.0.0/tcp/${PORT}/ws`] },
+  transports: [webSockets({ filter: all })],
+  connectionEncrypters: [noise()],
+  streamMuxers: [yamux()],
+  connectionGater: { denyDialMultiaddr: () => false },
+  services: {
+    identify: identify(),
+    relay: circuitRelayServer({ reservations: { maxReservations: 256 } }),
+    pubsub: gossipsub({
+      allowPublishToZeroTopicPeers: true,
+      emitSelf: false,
+      floodPublish: true,
+      D: 2, Dlo: 1, Dhi: 6, Dout: 0,
+      maxMessageSize: 65536  // 64 KB — enough for encrypted text, prevents flood abuse
+    })
+  }
+})
+
+const MAX_TOPICS = 50
+
+relay.services.pubsub.addEventListener('subscription-change', (evt) => {
+  for (const { topic, subscribe } of evt.detail.subscriptions) {
+    if (subscribe && !relay.services.pubsub.getTopics().includes(topic)) {
+      if (relay.services.pubsub.getTopics().length >= MAX_TOPICS) {
+        console.log(`[!topic] limit reached (${MAX_TOPICS}), ignoring "${topic}"`)
+        continue
+      }
+      relay.services.pubsub.subscribe(topic)
+      console.log(`[+topic] "${topic}"`)
+    }
+  }
+})
+
+relay.services.pubsub.addEventListener('message', (evt) => {
+  const from = evt.detail.from.toString().slice(0, 12)
+  console.log(`[msg:${evt.detail.topic}] ${from}...: ${new TextDecoder().decode(evt.detail.data)}`)
+})
+
+relay.addEventListener('peer:connect', (evt) => console.log('[+]', evt.detail.toString().slice(0, 16) + '...'))
+relay.addEventListener('peer:disconnect', (evt) => console.log('[-]', evt.detail.toString().slice(0, 16) + '...'))
+
+if (PEERS.length > 0) {
+  console.log(`\nŁączę z ${PEERS.length} innymi relay...`)
+  for (const addr of PEERS) {
+    try {
+      await relay.dial(multiaddr(addr))
+      console.log(`  ✓ ${addr.slice(0, 60)}`)
+    } catch (e) {
+      console.log(`  ✗ ${addr.slice(0, 60)} (${e.message})`)
+    }
+  }
+}
+
+console.log(`\n✅ Relay uruchomiony na porcie ${PORT}`)
+if (HOST) {
+  console.log(`📋 Adres produkcyjny (WSS przez nginx):`)
+  console.log(`   /dns4/${HOST}/tcp/443/wss/http-path/%2Frelay/p2p/${peerId.toString()}`)
+}
+console.log(`📋 Adres lokalny (WS bezpośredni):`)
+console.log(`   /ip4/127.0.0.1/tcp/${PORT}/ws/p2p/${peerId.toString()}\n`)

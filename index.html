@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <title>libp2p Chat v3</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: monospace; background: #0d1117; color: #c9d1d9; padding: 20px; max-width: 860px; }
+    h1 { color: #58a6ff; margin-bottom: 16px; font-size: 1.2em; }
+    h2 { color: #8b949e; font-size: 0.85em; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+    section { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 16px; margin-bottom: 14px; }
+    input[type=text], input[type=password] { width: 100%; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 8px; border-radius: 4px; font-family: monospace; font-size: 0.82em; }
+    button { background: #238636; color: #fff; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-size: 0.82em; }
+    button:hover { background: #2ea043; }
+    button:disabled { background: #21262d; color: #8b949e; cursor: not-allowed; }
+    label { font-size: 0.78em; color: #8b949e; display: block; margin-bottom: 4px; margin-top: 10px; }
+    label:first-child { margin-top: 0; }
+
+    #status { padding: 5px 10px; border-radius: 4px; font-size: 0.82em; margin-top: 8px; display: inline-block; }
+    #status.ok  { background: #0f2c18; color: #56d364; border: 1px solid #1f6331; }
+    #status.err { background: #2c0f0f; color: #f85149; border: 1px solid #6e1d1d; }
+
+    .badge { display: none; padding: 3px 10px; border-radius: 10px; font-size: 0.75em; margin-left: 10px; }
+    .badge.ws     { background: #1c2128; color: #8b949e; border: 1px solid #30363d; }
+    .badge.relay  { background: #2c2000; color: #e3b341; border: 1px solid #5a4000; }
+    .badge.direct { background: #0f2c18; color: #56d364; border: 1px solid #1f6331; }
+
+    #relay-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+    .relay-row { display: flex; gap: 6px; }
+    .relay-row input { flex: 1; }
+    .btn-remove { background: #2c0f0f; color: #f85149; border: 1px solid #6e1d1d; padding: 8px 10px; flex-shrink: 0; }
+    .btn-remove:hover { background: #6e1d1d; }
+
+    .row { display: flex; gap: 6px; margin-bottom: 10px; }
+    .row input { flex: 1; }
+
+    #log { height: 300px; overflow-y: auto; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; padding: 10px; font-size: 0.82em; margin-top: 10px; }
+    .msg { padding: 2px 0; }
+    .msg.ok       { color: #56d364; }
+    .msg.err      { color: #f85149; }
+    .msg.info     { color: #79c0ff; }
+    .msg.self-msg { color: #e3b341; }
+    .msg.peer-msg { color: #a5d6ff; }
+
+    #chat-section { display: none; }
+    #send-section { display: none; }
+
+    .hint { font-size: 0.75em; color: #6e7681; margin-top: 8px; line-height: 1.6; }
+    .hint code { background: #1c2128; padding: 1px 5px; border-radius: 3px; color: #a5d6ff; }
+  </style>
+</head>
+<body>
+  <h1>⚡ libp2p Chat v3</h1>
+
+  <section>
+    <h2>Relay serwery</h2>
+    <div id="relay-list"></div>
+    <button id="btn-add-relay">+ Dodaj relay</button>
+
+    <label>Temat czatu:</label>
+    <div class="row">
+      <input type="text" id="topic-input" value="libp2p-chat-demo" />
+    </div>
+
+    <label>Passphrase (E2E szyfrowanie — wszyscy muszą użyć tego samego):</label>
+    <div class="row">
+      <input type="password" id="passphrase-input" value="libp2p-default-2025" autocomplete="off" />
+    </div>
+
+    <button id="btn-start" style="margin-top:10px">Uruchom węzeł</button>
+    <button id="btn-debug" style="margin-top:10px; background:#1c2128; border:1px solid #30363d; color:#8b949e">🔍 Diagnostyka połączeń</button>
+    <div id="status" class="ok">Gotowy</div>
+    <span id="conn-badge" class="badge ws"></span>
+
+    <p class="hint">
+      Uruchom relay: <code>node relay.mjs --pass haslo1 --port 9001</code><br>
+      Kilka relay: <code>node relay.mjs --pass haslo2 --port 9002 --peers /ip4/127.0.0.1/tcp/9001/ws/p2p/...</code><br>
+      Peery odkrywają się automatycznie. Po połączeniu dcutr robi WebRTC direct — relay nie widzi wiadomości.
+    </p>
+  </section>
+
+  <div id="chat-section">
+    <section>
+      <h2>Chat
+        <span id="conn-badge-chat"></span>
+      </h2>
+      <div id="send-section">
+        <div class="row">
+          <input type="text" id="msg-input" placeholder="Wiadomość... (Enter = wyślij)" autocomplete="off" />
+          <button id="btn-send">Wyślij</button>
+        </div>
+      </div>
+      <div id="log"></div>
+    </section>
+  </div>
+
+  <!-- bundle injected by webpack -->
+</body>
+</html>

@@ -1,0 +1,32 @@
+{
+  "name": "libp2p-chat-v4b",
+  "version": "4.0.0",
+  "type": "module",
+  "scripts": {
+    "relay": "node src/relay.mjs",
+    "dev": "npx webpack serve --config webpack.config.cjs --mode development",
+    "build": "npx webpack --config webpack.config.cjs"
+  },
+  "dependencies": {
+    "libp2p": "2.2.1",
+    "@chainsafe/libp2p-gossipsub": "14.1.2",
+    "@chainsafe/libp2p-noise": "16.0.0",
+    "@chainsafe/libp2p-yamux": "7.0.0",
+    "@libp2p/circuit-relay-v2": "3.1.0",
+    "@libp2p/identify": "3.0.12",
+    "@libp2p/crypto": "5.0.6",
+    "@libp2p/peer-id": "5.0.9",
+    "@libp2p/websockets": "9.0.13",
+    "@multiformats/multiaddr": "12.3.4",
+    "uint8arrays": "5.1.0"
+  },
+  "devDependencies": {
+    "@babel/core": "7.26.0",
+    "@babel/plugin-transform-block-scoping": "7.25.9",
+    "babel-loader": "9.2.1",
+    "html-webpack-plugin": "5.6.3",
+    "webpack": "5.97.1",
+    "webpack-cli": "5.1.4",
+    "webpack-dev-server": "5.2.0"
+  }
+}
