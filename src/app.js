@@ -14,7 +14,6 @@
 
 import { createLibp2p } from 'libp2p'
 import { webSockets } from '@libp2p/websockets'
-import { all } from '@libp2p/websockets/filters'
 import { noise } from '@chainsafe/libp2p-noise'
 import { yamux } from '@chainsafe/libp2p-yamux'
 import { identify } from '@libp2p/identify'
@@ -291,7 +290,7 @@ document.getElementById('btn-start').addEventListener('click', async () => {
 
   try {
     node = await createLibp2p({
-      transports: [webSockets({ filter: all })],
+      transports: [webSockets({ filter: addrs => addrs.filter(ma => /\/(wss?)(\/|$)/.test(ma.toString())) })],
       connectionEncrypters: [noise()],
       streamMuxers: [yamux()],
       connectionGater: { denyDialMultiaddr: () => false },
