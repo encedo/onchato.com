@@ -15,7 +15,7 @@ After=network.target
 Type=simple
 User=www-data
 WorkingDirectory=/opt/onchato
-ExecStart=/usr/bin/node src/relay.mjs --port 9001 --pass ZMIEN_MNIE --host onchato.com
+ExecStart=/usr/bin/node src/relay.mjs --port 9001 --pass bs1.onchato.com --host bs1.onchato.com
 Restart=always
 RestartSec=5
 Environment=NODE_ENV=production

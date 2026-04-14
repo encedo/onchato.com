@@ -30,5 +30,6 @@ ssh "${SERVER}" "sudo systemctl restart onchato-relay"
 
 echo ""
 echo "✅ Deploy zakończony."
-echo "   Frontend: https://onchato.com"
+echo "   Frontend:  https://onchato.com"
+echo "   Relay:     wss://bs1.onchato.com/relay"
 echo "   Logi relay: ssh ${SERVER} 'journalctl -u onchato-relay -f'"

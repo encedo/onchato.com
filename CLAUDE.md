@@ -29,7 +29,7 @@ npm run relay      # start relay server (see flags below)
 ### Relay flags
 
 ```bash
-node src/relay.mjs --port 9001 --pass <secret> [--host onchato.com] [--peers <multiaddr>...]
+node src/relay.mjs --port 9001 --pass <secret> [--host bs1.onchato.com] [--peers <multiaddr>...]
 ```
 
 - `--pass` — determines PeerId (sha256 → Ed25519 seed); **must be stable across restarts**
@@ -68,9 +68,11 @@ GossipSub mesh propagates messages between all relays — clients on different r
 
 ```
 Internet
-  └── onchato.com:443  (nginx + Let's Encrypt TLS)
-        ├── GET /            →  /var/www/onchato/   (dist/)
-        └── WSS /relay       →  ws://127.0.0.1:9001  (Node.js relay)
+  ├── onchato.com:443     (nginx + Let's Encrypt TLS)
+  │     └── GET /         →  /var/www/onchato/   (dist/)
+  └── bs1.onchato.com:443 (nginx + Let's Encrypt TLS)
+        ├── WSS /relay    →  ws://127.0.0.1:9001  (Node.js relay)
+        └── GET /health   →  "bs1 ok"
 
 Node.js relay:  /opt/onchato/src/relay.mjs
 systemd:        onchato-relay.service
@@ -78,7 +80,7 @@ systemd:        onchato-relay.service
 
 **Browser multiaddr:**
 ```
-/dns4/onchato.com/tcp/443/wss/http-path/%2Frelay/p2p/<PEERID>
+/dns4/bs1.onchato.com/tcp/443/wss/http-path/%2Frelay/p2p/<PEERID>
 ```
 
 PeerId is deterministic from `--pass` — the relay prints it on startup.
