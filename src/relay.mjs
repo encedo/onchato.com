@@ -60,7 +60,7 @@ const relay = await createLibp2p({
       allowPublishToZeroTopicPeers: true,
       emitSelf: false,
       floodPublish: true,
-      D: 2, Dlo: 1, Dhi: 6, Dout: 0,
+      D: 8, Dlo: 6, Dhi: 12, Dout: 0,
       maxMessageSize: 65536,  // 64 KB — enough for encrypted text, prevents flood abuse
       historyLength: 2,       // keep last 2 windows (~2 min) instead of default 5
       historyGossip: 1        // advertise only last window in gossip announcements

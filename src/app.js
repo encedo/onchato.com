@@ -300,7 +300,7 @@ document.getElementById('btn-start').addEventListener('click', async () => {
           allowPublishToZeroTopicPeers: true,
           emitSelf: false,
           floodPublish: true,
-          D: 2, Dlo: 1, Dhi: 6, Dout: 0
+          D: 8, Dlo: 6, Dhi: 12, Dout: 0
         })
       }
     })
