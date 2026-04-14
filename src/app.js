@@ -24,7 +24,10 @@ import { fromString, toString } from 'uint8arrays'
 let node = null
 let TOPIC = 'libp2p-chat-demo'
 const SIG_PREFIX = '_signal/'
-let passphrase = 'libp2p-default-2025'
+const NICK_PREFIX = '_nick/'
+
+// PeerIds relayów (serwery) — nie mają DataChannel, pomijamy w sprawdzeniu allDirect
+const relayPeerIds = new Set()
 
 // peerId → RTCPeerConnection
 const peerConns = new Map()
@@ -32,6 +35,10 @@ const peerConns = new Map()
 const dataChannels = new Map()
 // peerId → queued ICE candidates (przed remote desc)
 const iceCandidateQueue = new Map()
+// peerId → nickname
+const nickMap = new Map()
+
+const displayName = (peerId) => nickMap.get(peerId) || (peerId.slice(0, 12) + '...')
 
 // ── Crypto (AES-GCM 256 + PBKDF2/SHA-256) ───────────────────────────────────
 
@@ -234,9 +241,8 @@ function setupDataChannel(dc, remotePeerId) {
     updateConnBadge()
   }
   dc.onmessage = async (e) => {
-    const sender = remotePeerId.slice(0, 12) + '...'
     const text = await decryptMsg(e.data, document.getElementById('passphrase-input').value.trim() || 'libp2p-default-2025')
-    log(`[${sender}] ${text}`, 'peer-msg')
+    log(`[${displayName(remotePeerId)}] ${text}`, 'peer-msg')
   }
   dc.onerror = (e) => {
     log(`DataChannel błąd: ${e.message}`, 'err')
@@ -252,10 +258,23 @@ async function handlePubsubMessage(evt) {
   // Wiadomości czatu przez relay — ignoruj jeśli mamy otwarty DataChannel z tym peerem
   if (topic === TOPIC) {
     if (dataChannels.has(from)) return // już dostaliśmy przez WebRTC
-    const sender = from.slice(0, 12) + '...'
     const raw = toString(evt.detail.data, 'utf8')
     const text = await decryptMsg(raw, document.getElementById('passphrase-input').value.trim() || 'libp2p-default-2025')
-    log(`[${sender}] ${text}`, 'peer-msg')
+    log(`[${displayName(from)}] ${text}`, 'peer-msg')
+    return
+  }
+
+  // Ogłoszenia nicków
+  if (topic === NICK_PREFIX + TOPIC) {
+    try {
+      const { type, nick, peer } = JSON.parse(toString(evt.detail.data, 'utf8'))
+      if (type === 'nick' && nick && peer && peer !== node.peerId.toString()) {
+        const prev = nickMap.get(peer)
+        nickMap.set(peer, nick)
+        if (!prev) log(`→ ${nick} dołączył/a`, 'info')
+        else if (prev !== nick) log(`→ ${prev} zmienił/a nick na ${nick}`, 'info')
+      }
+    } catch (e) { /* ignore */ }
     return
   }
 
@@ -272,6 +291,16 @@ async function handlePubsubMessage(evt) {
       // ignore parse errors
     }
   }
+}
+
+// ── Nick announcement ─────────────────────────────────────────────────────────
+
+function announceNick() {
+  if (!node) return
+  const nick = document.getElementById('nick-input').value.trim()
+  if (!nick) return
+  const payload = fromString(JSON.stringify({ type: 'nick', nick, peer: node.peerId.toString() }), 'utf8')
+  node.services.pubsub.publish(NICK_PREFIX + TOPIC, payload).catch(() => {})
 }
 
 // ── Start ─────────────────────────────────────────────────────────────────────
@@ -341,6 +370,7 @@ document.getElementById('btn-start').addEventListener('click', async () => {
 
     node.addEventListener('peer:connect', (evt) => {
       log('Peer połączony: ' + evt.detail.toString().slice(0, 16) + '...', 'ok')
+      setTimeout(announceNick, 1000) // przedstaw się nowemu peerowi
     })
 
     await node.start()
@@ -348,7 +378,12 @@ document.getElementById('btn-start').addEventListener('click', async () => {
 
     log(`Łączę z ${relayAddrs.length} relay...`, 'info')
     const results = await Promise.allSettled(
-      relayAddrs.map(addr => node.dial(multiaddr(addr)))
+      relayAddrs.map(addr => {
+        const ma = multiaddr(addr)
+        const pid = ma.getPeerId()
+        if (pid) relayPeerIds.add(pid)
+        return node.dial(ma)
+      })
     )
     results.forEach((r, i) => {
       if (r.status === 'fulfilled') log(`  ✓ relay ${i + 1} połączony`, 'ok')
@@ -362,7 +397,13 @@ document.getElementById('btn-start').addEventListener('click', async () => {
     document.getElementById('chat-section').style.display = 'block'
     document.getElementById('send-section').style.display = 'block'
     document.getElementById('conn-badge').style.display = 'inline-block'
+    document.getElementById('nick-input').disabled = true
     updateConnBadge()
+
+    // Subskrybuj temat nicków i ogłoś swój
+    node.services.pubsub.subscribe(NICK_PREFIX + TOPIC)
+    setTimeout(announceNick, 2000) // po 2s — daj GossipSubowi chwilę
+    setInterval(announceNick, 60000) // keepalive co 60s
 
     // Poll gotowości
     const poll = setInterval(() => {
@@ -432,6 +473,7 @@ async function sendMsg() {
   // zastąp cały blok if/allDirect bezwarunkowym publish jak niżej:
   //   await node.services.pubsub.publish(TOPIC, fromString(encrypted, 'utf8'))
   const topicPeers = node.services.pubsub.getSubscribers(TOPIC)
+    .filter(p => !relayPeerIds.has(p.toString()))
   const allDirect = topicPeers.length > 0 &&
     topicPeers.every(p => {
       const dc = dataChannels.get(p.toString())

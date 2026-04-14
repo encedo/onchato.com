@@ -155,9 +155,10 @@ sudo journalctl -u onchato-relay -f
 - [x] GossipSub send optimisation: skip relay publish when all peers have open DataChannel
 - [x] Deployment files: nginx config, systemd service, deploy.sh
 
-### In progress
-- [ ] First deployment to onchato.com
-- [ ] Connection tests: via relay (GossipSub) and direct (WebRTC)
+### Done (continued)
+- [x] First deployment to onchato.com
+- [x] Connection tests: via relay (GossipSub) ✓ and direct (WebRTC DataChannel) ✓
+- [x] Fix: custom WebSocket filter to support `http-path` multiaddr (was rejected by `exactMatch`)
 
 ### To consider later
 - [ ] TURN server (if WebRTC fails on symmetric NAT networks)

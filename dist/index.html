@@ -1,10 +1,4 @@
-<!DOCTYPE html>
-<html lang="pl">
-<head>
-  <meta charset="UTF-8" />
-  <title>libp2p Chat v3</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+<!doctype html><html lang="pl"><head><meta charset="UTF-8"/><title>libp2p Chat v3</title><style>* { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: monospace; background: #0d1117; color: #c9d1d9; padding: 20px; max-width: 860px; }
     h1 { color: #58a6ff; margin-bottom: 16px; font-size: 1.2em; }
     h2 { color: #8b949e; font-size: 0.85em; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
@@ -46,59 +40,4 @@
     #send-section { display: none; }
 
     .hint { font-size: 0.75em; color: #6e7681; margin-top: 8px; line-height: 1.6; }
-    .hint code { background: #1c2128; padding: 1px 5px; border-radius: 3px; color: #a5d6ff; }
-  </style>
-</head>
-<body>
-  <h1>⚡ libp2p Chat v3</h1>
-
-  <section>
-    <h2>Relay serwery</h2>
-    <div id="relay-list"></div>
-    <button id="btn-add-relay">+ Dodaj relay</button>
-
-    <label>Temat czatu:</label>
-    <div class="row">
-      <input type="text" id="topic-input" value="libp2p-chat-demo" />
-    </div>
-
-    <label>Passphrase (E2E szyfrowanie — wszyscy muszą użyć tego samego):</label>
-    <div class="row">
-      <input type="password" id="passphrase-input" value="libp2p-default-2025" autocomplete="off" />
-    </div>
-
-    <label>Nickname (opcjonalnie — widoczny dla innych w czacie):</label>
-    <div class="row">
-      <input type="text" id="nick-input" placeholder="np. Alice" autocomplete="off" />
-    </div>
-
-    <button id="btn-start" style="margin-top:10px">Uruchom węzeł</button>
-    <button id="btn-debug" style="margin-top:10px; background:#1c2128; border:1px solid #30363d; color:#8b949e">🔍 Diagnostyka połączeń</button>
-    <div id="status" class="ok">Gotowy</div>
-    <span id="conn-badge" class="badge ws"></span>
-
-    <p class="hint">
-      Uruchom relay: <code>node relay.mjs --pass haslo1 --port 9001</code><br>
-      Kilka relay: <code>node relay.mjs --pass haslo2 --port 9002 --peers /ip4/127.0.0.1/tcp/9001/ws/p2p/...</code><br>
-      Peery odkrywają się automatycznie. Po połączeniu dcutr robi WebRTC direct — relay nie widzi wiadomości.
-    </p>
-  </section>
-
-  <div id="chat-section">
-    <section>
-      <h2>Chat
-        <span id="conn-badge-chat"></span>
-      </h2>
-      <div id="send-section">
-        <div class="row">
-          <input type="text" id="msg-input" placeholder="Wiadomość... (Enter = wyślij)" autocomplete="off" />
-          <button id="btn-send">Wyślij</button>
-        </div>
-      </div>
-      <div id="log"></div>
-    </section>
-  </div>
-
-  <!-- bundle injected by webpack -->
-</body>
-</html>
+    .hint code { background: #1c2128; padding: 1px 5px; border-radius: 3px; color: #a5d6ff; }</style><script defer="defer" src="bundle.js"></script></head><body><h1>⚡ libp2p Chat v3</h1><section><h2>Relay serwery</h2><div id="relay-list"></div><button id="btn-add-relay">+ Dodaj relay</button> <label>Temat czatu:</label><div class="row"><input id="topic-input" value="libp2p-chat-demo"/></div><label>Passphrase (E2E szyfrowanie — wszyscy muszą użyć tego samego):</label><div class="row"><input type="password" id="passphrase-input" value="libp2p-default-2025" autocomplete="off"/></div><label>Nickname (opcjonalnie — widoczny dla innych w czacie):</label><div class="row"><input id="nick-input" placeholder="np. Alice" autocomplete="off"/></div><button id="btn-start" style="margin-top:10px">Uruchom węzeł</button> <button id="btn-debug" style="margin-top:10px; background:#1c2128; border:1px solid #30363d; color:#8b949e">🔍 Diagnostyka połączeń</button><div id="status" class="ok">Gotowy</div><span id="conn-badge" class="badge ws"></span><p class="hint">Uruchom relay: <code>node relay.mjs --pass haslo1 --port 9001</code><br>Kilka relay: <code>node relay.mjs --pass haslo2 --port 9002 --peers /ip4/127.0.0.1/tcp/9001/ws/p2p/...</code><br>Peery odkrywają się automatycznie. Po połączeniu dcutr robi WebRTC direct — relay nie widzi wiadomości.</p></section><div id="chat-section"><section><h2>Chat <span id="conn-badge-chat"></span></h2><div id="send-section"><div class="row"><input id="msg-input" placeholder="Wiadomość... (Enter = wyślij)" autocomplete="off"/> <button id="btn-send">Wyślij</button></div></div><div id="log"></div></section></div></body></html>
