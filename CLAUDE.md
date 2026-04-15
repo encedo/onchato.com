@@ -159,8 +159,17 @@ sudo journalctl -u onchato-relay -f
 - [x] First deployment to onchato.com
 - [x] Connection tests: via relay (GossipSub) ✓ and direct (WebRTC DataChannel) ✓
 - [x] Fix: custom WebSocket filter to support `http-path` multiaddr (was rejected by `exactMatch`)
+- [x] Fix: relay node excluded from `allDirect` check (`relayPeerIds` Set)
+- [x] Nickname system: `_nick/<TOPIC>` GossipSub topic, displayed in messages
+- [x] GossipSub mesh degree increased: D=8, Dlo=6, Dhi=12 (for ~25 clients)
+- [x] Auth stub: `src/auth-server.mjs` + nginx `auth_request` block (commented out)
+- [x] Cleaned up version refs (v3/v4), added `dist/` to `.gitignore`
+
+### In progress
+- [ ] 25-client load test
 
 ### To consider later
+- [ ] Enable auth: uncomment nginx `auth_request`, plug 3rd party JWT into `auth-server.mjs`
 - [ ] TURN server (if WebRTC fails on symmetric NAT networks)
 - [ ] Second relay instance (redundancy)
 
