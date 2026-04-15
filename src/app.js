@@ -2,14 +2,14 @@
  * Browser node
  *
  * Transport:
- *  - Warstwa 1: GossipSub przez WebSocket relay (zawsze działa, fallback)
- *  - Warstwa 2: RTCDataChannel bezpośredni (peer-to-peer, relay nie widzi)
+ *  - Layer 1: GossipSub via WebSocket relay (always works, fallback)
+ *  - Layer 2: RTCDataChannel direct (peer-to-peer, relay cannot see messages)
  *
- * Signaling WebRTC przez GossipSub:
- *  Temat `_signal/<peerId>` — SDP offer/answer + ICE candidates
+ * WebRTC signaling via GossipSub:
+ *  Topic `_signal/<peerId>` — SDP offer/answer + ICE candidates
  *
- * API dla użytkownika jest jedno: pole tekstowe + Wyślij.
- * sendMsg() automatycznie wybiera DataChannel (jeśli open) lub GossipSub.
+ * Single user API: text input + Send.
+ * sendMsg() automatically selects DataChannel (if open) or GossipSub.
  */
 
 import { createLibp2p } from 'libp2p'
@@ -26,14 +26,14 @@ let TOPIC = 'libp2p-chat-demo'
 const SIG_PREFIX = '_signal/'
 const NICK_PREFIX = '_nick/'
 
-// PeerIds relayów (serwery) — nie mają DataChannel, pomijamy w sprawdzeniu allDirect
+// Relay server PeerIds — they have no DataChannel, excluded from allDirect check
 const relayPeerIds = new Set()
 
 // peerId → RTCPeerConnection
 const peerConns = new Map()
 // peerId → RTCDataChannel (open)
 const dataChannels = new Map()
-// peerId → queued ICE candidates (przed remote desc)
+// peerId → queued ICE candidates (before remote description is set)
 const iceCandidateQueue = new Map()
 // peerId → nickname
 const nickMap = new Map()
@@ -131,20 +131,20 @@ async function sendSignal(toPeerId, payload) {
       fromString(JSON.stringify(payload), 'utf8')
     )
   } catch (e) {
-    // ignore — może jeszcze nie ma subskrybenta
+    // ignore — subscriber may not exist yet
   }
 }
 
 async function createOffer(remotePeerId) {
   if (!webRTCAvailable) return
-  if (peerConns.has(remotePeerId)) return // już w toku
+  if (peerConns.has(remotePeerId)) return // already in progress
 
   log(`WebRTC: inicjuję połączenie z ${remotePeerId.slice(0, 16)}...`, 'info')
   const pc = new RTCPeerConnection(STUN)
   peerConns.set(remotePeerId, pc)
   iceCandidateQueue.set(remotePeerId, [])
 
-  // DataChannel — strona inicjująca
+  // DataChannel — initiating side
   const dc = pc.createDataChannel('chat')
   setupDataChannel(dc, remotePeerId)
 
@@ -175,7 +175,7 @@ async function handleOffer(fromPeerId, offer) {
   peerConns.set(fromPeerId, pc)
   iceCandidateQueue.set(fromPeerId, [])
 
-  // DataChannel — strona odpowiadająca
+  // DataChannel — answering side
   pc.ondatachannel = (e) => {
     setupDataChannel(e.channel, fromPeerId)
   }
@@ -222,7 +222,7 @@ async function handleICE(fromPeerId, candidate) {
   if (pc.remoteDescription) {
     await pc.addIceCandidate(candidate)
   } else {
-    // Kolejkuj — remote description jeszcze nie ustawiona
+    // Queue — remote description not set yet
     const q = iceCandidateQueue.get(fromPeerId) || []
     q.push(candidate)
     iceCandidateQueue.set(fromPeerId, q)
@@ -249,22 +249,22 @@ function setupDataChannel(dc, remotePeerId) {
   }
 }
 
-// ── Gossipsub message handler ─────────────────────────────────────────────────
+// ── GossipSub message handler ─────────────────────────────────────────────────
 
 async function handlePubsubMessage(evt) {
   const topic = evt.detail.topic
   const from = evt.detail.from.toString()
 
-  // Wiadomości czatu przez relay — ignoruj jeśli mamy otwarty DataChannel z tym peerem
+  // Chat messages via relay — ignore if we have an open DataChannel with this peer
   if (topic === TOPIC) {
-    if (dataChannels.has(from)) return // już dostaliśmy przez WebRTC
+    if (dataChannels.has(from)) return // already received via WebRTC
     const raw = toString(evt.detail.data, 'utf8')
     const text = await decryptMsg(raw, document.getElementById('passphrase-input').value.trim() || 'libp2p-default-2025')
     log(`[${displayName(from)}] ${text}`, 'peer-msg')
     return
   }
 
-  // Ogłoszenia nicków
+  // Nick announcements
   if (topic === NICK_PREFIX + TOPIC) {
     try {
       const { type, nick, peer } = JSON.parse(toString(evt.detail.data, 'utf8'))
@@ -278,11 +278,11 @@ async function handlePubsubMessage(evt) {
     return
   }
 
-  // Sygnały WebRTC — tylko wiadomości do nas
+  // WebRTC signals — only messages addressed to us
   if (topic === SIG_PREFIX + node.peerId.toString()) {
     try {
       const msg = JSON.parse(toString(evt.detail.data, 'utf8'))
-      if (msg.from === node.peerId.toString()) return // własne echo
+      if (msg.from === node.peerId.toString()) return // own echo
 
       if (msg.type === 'offer') handleOffer(msg.from, msg.sdp)
       else if (msg.type === 'answer') handleAnswer(msg.from, msg.sdp)
@@ -311,7 +311,7 @@ document.getElementById('btn-start').addEventListener('click', async () => {
   if (relayAddrs.length === 0) return alert('Dodaj przynajmniej jeden relay!')
 
   TOPIC = document.getElementById('topic-input').value.trim() || 'libp2p-chat-demo'
-  // passphrase odczytywane przy każdej wysyłce
+  // passphrase is read on each send
   document.getElementById('btn-start').disabled = true
   document.getElementById('topic-input').disabled = true
   setStatus('Łączenie...', true)
@@ -336,7 +336,7 @@ document.getElementById('btn-start').addEventListener('click', async () => {
 
     window.__libp2pNode = node
 
-    // Subskrybuj czat + (jeśli WebRTC dostępne) własny kanał sygnalizacyjny
+    // Subscribe to chat topic + own signaling channel (if WebRTC available)
     node.services.pubsub.subscribe(TOPIC)
     if (webRTCAvailable) {
       node.services.pubsub.subscribe(SIG_PREFIX + node.peerId.toString())
@@ -346,21 +346,21 @@ document.getElementById('btn-start').addEventListener('click', async () => {
 
     node.services.pubsub.addEventListener('message', handlePubsubMessage)
 
-    // Gdy pojawi się nowy peer na GossipSub → initiuj WebRTC offer
-    // Tylko peer z wyższym PeerId inicjuje (żeby uniknąć podwójnego offer)
+    // When a new peer appears on GossipSub → initiate WebRTC offer.
+    // Only the peer with the higher PeerId initiates (deterministic, avoids double offer).
     node.services.pubsub.addEventListener('subscription-change', (evt) => {
       if (!webRTCAvailable) return
       for (const { topic, subscribe } of evt.detail.subscriptions) {
         if (!subscribe) continue
-        // Inny peer zasubskrybował swój kanał sygnalizacyjny
+        // Another peer subscribed to their own signaling channel
         if (topic.startsWith(SIG_PREFIX)) {
           const theirPeerId = topic.slice(SIG_PREFIX.length)
           if (theirPeerId === node.peerId.toString()) continue
-          // Zasubskrybuj ich kanał sygnalizacyjny żeby odbierali nasze sygnały
+          // Subscribe to their signaling channel so they receive our signals
           if (!node.services.pubsub.getTopics().includes(topic)) {
             node.services.pubsub.subscribe(topic)
           }
-          // Wyższy PeerId inicjuje offer (deterministyczne, tylko jeden offer)
+          // Higher PeerId initiates offer (single offer, no collision)
           if (node.peerId.toString() > theirPeerId) {
             setTimeout(() => createOffer(theirPeerId), 500)
           }
@@ -370,7 +370,7 @@ document.getElementById('btn-start').addEventListener('click', async () => {
 
     node.addEventListener('peer:connect', (evt) => {
       log('Peer połączony: ' + evt.detail.toString().slice(0, 16) + '...', 'ok')
-      setTimeout(announceNick, 1000) // przedstaw się nowemu peerowi
+      setTimeout(announceNick, 1000) // introduce ourselves to the new peer
     })
 
     await node.start()
@@ -400,12 +400,12 @@ document.getElementById('btn-start').addEventListener('click', async () => {
     document.getElementById('nick-input').disabled = true
     updateConnBadge()
 
-    // Subskrybuj temat nicków i ogłoś swój
+    // Subscribe to nick topic and announce own nick
     node.services.pubsub.subscribe(NICK_PREFIX + TOPIC)
-    setTimeout(announceNick, 2000) // po 2s — daj GossipSubowi chwilę
-    setInterval(announceNick, 60000) // keepalive co 60s
+    setTimeout(announceNick, 2000) // after 2s — give GossipSub time to settle
+    setInterval(announceNick, 60000) // keepalive every 60s
 
-    // Poll gotowości
+    // Poll until GossipSub mesh is ready
     const poll = setInterval(() => {
       if (!node) return clearInterval(poll)
       const subs = node.services.pubsub.getSubscribers(TOPIC)
@@ -455,22 +455,22 @@ async function sendMsg() {
   const pass = document.getElementById('passphrase-input').value.trim() || 'libp2p-default-2025'
   const encrypted = await encryptMsg(text, pass)
 
-  // Wyślij przez wszystkie otwarte DataChannels (WebRTC direct)
+  // Send via all open DataChannels (WebRTC direct)
   let sentDirect = 0
-  for (const [peerId, dc] of dataChannels) {
+  for (const [, dc] of dataChannels) {
     if (dc.readyState === 'open') {
       dc.send(encrypted)
       sentDirect++
     }
   }
 
-  // Wyślij przez GossipSub tylko jeśli nie wszyscy peerzy mają otwarty DataChannel.
-  // Porównujemy getSubscribers(TOPIC) z dataChannels — jeśli ktoś w topicu nie ma
-  // WebRTC (nowy peer w trakcie handshake, przeglądarka bez WebRTC, symmetric NAT),
-  // relay musi dostarczyć wiadomość.
+  // Send via GossipSub only if not all peers have an open DataChannel.
+  // Relay server PeerIds are excluded — they never have a DataChannel.
+  // If any browser peer lacks WebRTC (handshake in progress, symmetric NAT,
+  // no WebRTC support), GossipSub must deliver the message.
   //
-  // OPTYMALIZACJA — jeśli sprawia problemy podczas testów (np. wiadomości nie dochodzą),
-  // zastąp cały blok if/allDirect bezwarunkowym publish jak niżej:
+  // FALLBACK: if messages are not arriving, replace the if/allDirect block
+  // with an unconditional publish:
   //   await node.services.pubsub.publish(TOPIC, fromString(encrypted, 'utf8'))
   const topicPeers = node.services.pubsub.getSubscribers(TOPIC)
     .filter(p => !relayPeerIds.has(p.toString()))

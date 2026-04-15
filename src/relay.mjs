@@ -34,7 +34,7 @@ const getPeers = () => {
 
 const PASS  = get('--pass', 'default-relay-pass')
 const PORT  = parseInt(get('--port', '9001'))
-const HOST  = get('--host', null)   // np. onchato.com — do drukowania produkcyjnego multiaddr
+const HOST  = get('--host', null)   // e.g. onchato.com — used to print the production WSS multiaddr
 const PEERS = getPeers()
 
 const seed    = createHash('sha256').update(PASS).digest()
