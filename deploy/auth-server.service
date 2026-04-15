@@ -1,0 +1,24 @@
+# systemd service — onchato auth server
+# Skopiuj do: /etc/systemd/system/onchato-auth.service
+# Aktywuj:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable onchato-auth
+#   sudo systemctl start onchato-auth
+# Logi:
+#   sudo journalctl -u onchato-auth -f
+
+[Unit]
+Description=onchato auth server (nginx auth_request backend)
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/github/onchato.com
+ExecStart=/usr/bin/node src/auth-server.mjs
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

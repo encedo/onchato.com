@@ -1,5 +1,5 @@
 /**
- * Browser node v4b
+ * Browser node
  *
  * Transport:
  *  - Warstwa 1: GossipSub przez WebSocket relay (zawsze działa, fallback)

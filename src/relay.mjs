@@ -1,5 +1,5 @@
 /**
- * Relay node v4a — libp2p 2.2.1 + circuit-relay-v2 3.1.0
+ * Relay node — libp2p 2.2.1 + circuit-relay-v2 3.1.0
  *
  * node src/relay.mjs --pass secret123 --port 9001
  * node src/relay.mjs --pass secret456 --port 9002 --peers /ip4/.../tcp/9001/ws/p2p/...

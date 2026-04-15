@@ -1,5 +1,5 @@
 {
-  "name": "libp2p-chat-v4b",
+  "name": "libp2p-chat",
   "version": "4.0.0",
   "type": "module",
   "scripts": {
